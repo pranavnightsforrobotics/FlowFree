@@ -19,10 +19,25 @@
 import sys
 import pycosat
 
-numColors = 10
-showSol = False
-showInfo = False
-showPath = False
+UP = 1
+DOWN = 2
+LEFT = 4
+RIGHT = 8
+
+UD = UP | DOWN
+UL = UP | LEFT
+UR = UP | RIGHT
+DL = DOWN | LEFT
+DR = DOWN | RIGHT
+LR = LEFT | RIGHT
+
+numRows = -1
+numCols = -1
+colors = []
+grid = [[]]
+
+# color hash = colorInd * gridSize + rowInd * colSize + colInd
+# dir hash = dirType * gridSize + rowInd * colSize + colInd
 
 # Helpers
 def allPairs(data):
@@ -36,16 +51,38 @@ def noTwo(data):
     arr.append([-elem[0], -elem[1]])
   return arr
 
-def encodeColorVar():
-  global numColors
+def colorHash(row, col, colorNum):
+  return colorNum * (numRows * numCols) + row * numCols + col 
 
-def decodeColorVar():
+# ret: colorInd, row, col
+def colorUnhash(hash):
+  return hash // (numRows * numCols), hash // numCols, hash % numCols
 
 def generateColorClauses():
+  global grid
+  global colors
+  clauses = []
+  for row in range(len(grid)):
+    for col in range(len(grid[row])):
+      arr = []
+      if(grid[row][col] == -1):
+        for color in colors:
+          arr.append(colorHash(row, col, color))
+        clauses.append(arr)
+        clauses.append(noTwo(arr))
+      else:
+        for color in colors:
+          if(color == grid[row][col]):
+            arr.append(colorHash(row, col, col))
+          else:
+            arr.append(-colorHash(row, col, col))
+        clauses.append(arr)
+  
+  return clauses
 
-def encodeDirectionVar():
+def dirHash():
 
-def decodeDirectionVar():
+def dirUnhash():
 
 def generateValidDirections():
 
@@ -62,7 +99,24 @@ def fixCycles():
 def generateSolution():
 
 
-def fullPipeline(map):
+def fullPipeline(gridInput):
+  global numRows
+  global numCols
+  global colors
+  global grid
+
+  numCols = len(gridInput[0])
+  numRows = len(gridInput)
+  grid = gridInput
+  unique = set()
+  colors.clear()
+
+  for row in grid:
+    for elem in row:
+      if elem not in unique:
+        unique.add(elem)
+        if(elem != -1):
+          colors.append(elem)
 
   return sol, info, path
 
@@ -78,7 +132,7 @@ def handleBadPuzzle():
   print('ERROR: Called SAT solver with incorrect puzzle format')
   print('Please call with following format: ')
   print('-1 to represent blank squares')
-  print('Positive Integers to represent each indvidual color, integer for like colors must match')
+  print('1 to n to represent each unique color, integer for like colors must match')
   print('Spaces for colum-wise seprations')
   print('Newlines for row-wise seprations')
   print('Ensure each row has the same number of squares')
@@ -128,6 +182,9 @@ if __name__ == "__main__":
   validArgs = set(['-s', '-i', '-p'])
 
   puzzleFileName = ''
+  showSol = False
+  showInfo = False
+  showPath = False
 
   for elem in range(1, len(sys.argv)):
     if(sys.argv[elem] not in validArgs):
