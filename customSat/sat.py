@@ -18,6 +18,8 @@
 
 import sys
 import pycosat
+import operator
+from functools import reduce
 
 UP = 1
 DOWN = 2
@@ -35,6 +37,7 @@ numRows = -1
 numCols = -1
 colors = []
 grid = [[]]
+validDirs = [UD, UL, UR, DL, DR, LR]
 
 # color hash = colorInd * gridSize + rowInd * colSize + colInd
 # dir hash = dirType * gridSize + rowInd * colSize + colInd
@@ -51,40 +54,64 @@ def noTwo(data):
     arr.append([-elem[0], -elem[1]])
   return arr
 
-def colorHash(row, col, colorNum):
-  return colorNum * (numRows * numCols) + row * numCols + col 
+def colorHash(colorNum, row, col):
+  return colorNum * (numRows * numCols) + row * numCols + col
 
 # ret: colorInd, row, col
 def colorUnhash(hash):
   return hash // (numRows * numCols), hash // numCols, hash % numCols
 
+def dirHash(dirType, row, col):
+  return dirType * (numRows * numCols) + row * numCols + col
+
+# dirType, row, col
+def dirUnhash(hash):
+  return hash // (numRows * numCols), hash // numCols, hash % numCols
+
 def generateColorClauses():
-  global grid
-  global colors
   clauses = []
   for row in range(len(grid)):
     for col in range(len(grid[row])):
-      arr = []
       if(grid[row][col] == -1):
+        arr = []
         for color in colors:
           arr.append(colorHash(row, col, color))
         clauses.append(arr)
-        clauses.append(noTwo(arr))
+        clauses.extend(noTwo(arr))
       else:
         for color in colors:
           if(color == grid[row][col]):
-            arr.append(colorHash(row, col, col))
+            clauses.append(colorHash(row, col, col))
           else:
-            arr.append(-colorHash(row, col, col))
-        clauses.append(arr)
+            clauses.append(-colorHash(row, col, col))
   
   return clauses
 
-def dirHash():
-
-def dirUnhash():
-
 def generateValidDirections():
+  arrOfDirVar = []
+  for rowInd in range(numRows):
+    for colInd in range(numCols):
+      invalidArgs = set()
+      if(rowInd == 0):
+        invalidArgs.add(UP)
+      if(rowInd == numRows - 1):
+        invalidArgs.add(DOWN)
+      if(colInd == 0):
+        invalidArgs.add(LEFT)
+      if(colInd == numCols - 1):
+        invalidArgs.add(RIGHT)
+      for dirType in validDirs:
+        mult = 1
+        if(grid[rowInd][colInd] != '-1'):
+          mult = -1
+
+        if(reduce(operator.xor, invalidArgs, dirType) != dirType):
+          mult = -1
+
+        arrOfDirVar.append(mult * dirHash(dirType, rowInd, colInd))
+  
+  return arrOfDirVar
+
 
 def generateDirectionClauses():
 
