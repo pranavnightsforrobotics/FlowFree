@@ -20,6 +20,7 @@ import sys
 import pycosat
 import operator
 from functools import reduce
+import time
 
 UP = 1
 DOWN = 2
@@ -38,6 +39,11 @@ numCols = -1
 colors = []
 grid = [[]]
 validDirs = [UD, UL, UR, DL, DR, LR]
+plainDir = [UP, DOWN, LEFT, RIGHT]
+delta = {UP: (1, 0),
+         DOWN: (-1, 0),
+         LEFT: (0, -1),
+         RIGHT: (0, 1)}
 
 # color hash = colorInd * gridSize + rowInd * colSize + colInd
 # dir hash = dirType * gridSize + rowInd * colSize + colInd
@@ -100,6 +106,7 @@ def generateValidDirections():
         invalidArgs.add(LEFT)
       if(colInd == numCols - 1):
         invalidArgs.add(RIGHT)
+      tempArr = []
       for dirType in validDirs:
         mult = 1
         if(grid[rowInd][colInd] != '-1'):
@@ -108,23 +115,80 @@ def generateValidDirections():
         if(reduce(operator.xor, invalidArgs, dirType) != dirType):
           mult = -1
 
-        arrOfDirVar.append(mult * dirHash(dirType, rowInd, colInd))
+        tempArr.append(mult * dirHash(dirType, rowInd, colInd))
+      arrOfDirVar.append(tempArr)
   
   return arrOfDirVar
 
 
-def generateDirectionClauses():
+def generateDirectionClauses(dirVars):
+  clauses = []
+  for rcInd in range(len(dirVars)):
+    if(dirVars[rcInd][0] < 0):
+      continue
+    clauses.append(dirVars[rcInd])
+    clauses.append(noTwo(dirVars[rcInd]))
+
+    for dirVar in dirVars[rcInd]:
+      dirType, row, col = dirUnhash(dirVar)
+      dirs = []
+      for dir in plainDir:
+        if dir | dirType == dirType:
+          dirs.append(dir)
+      con1Row, con1Col = row + delta[dirs[0]][0], col + delta[dirs[0]][1]
+      con2Row, con2Col = row + delta[dirs[1]][0], col + delta[dirs[1]][1]
+      for color in colors:
+        hash1 = colorHash(color, row, col)
+        hash2 = colorHash(color, con1Row, con1Col)
+        hash3 = colorHash(color, con2Row, con2Col)
+        clauses.append([-dirType, hash1, -hash2, -hash3])
+        clauses.append([-dirType, -hash1, hash2, -hash3])
+        clauses.append([-dirType, -hash1, -hash2, hash3])
+      
+    # skip squares that are start points
+    # for not start make sure 1 dir var is valid for that node
+    # make sure no 2 dir vars are valid for that node
+    # for each dir possible in that node, make sure that the node and the 2 dirs connected by the dirVar all have same color
+    # the combination of 3 clauses at end ignores clauses if wrong dir, it ignores color for clauses if wrong color, and it mandates
+    # color of nodes if correct color
+  
+  return clauses
 
 def generateSAT():
+  clauses = generateColorClauses()
+  numColorVars = len(colors) * numRows * numCols
+  numColorClauses = len(clauses)
+  dirs = generateValidDirections()
+  clauses.extend(generateDirectionClauses(dirs))
+  numDirVars = len(dirs)
+  numDirClauses = len(clauses) - numColorClauses
 
-def decodeSolution():
+  return clauses, numColorVars, numDirVars, numColorClauses, numDirClauses
 
-def checkForCycles():
+def decodeSolution(sol, numColorVars):
+  solGrid = [[]]
+  
+  for clauseInd in range(numColorVars):
+    if(sol[clauseInd] > 0):
+      solGrid[-1].append(colorUnhash(sol[clauseInd])[0])
+      if(len(solGrid[-1]) == numRows):
+        solGrid.append([])
+  
+  solGrid.pop()
 
-def fixCycles():
+  output_string = '\n'.join(
+    [' '.join(map(str, row)) for row in solGrid]
+  )
 
-def generateSolution():
+  return output_string
 
+# def checkForCycles():
+
+# def fixCycles():
+
+def generateSolution(clauses):
+  sol = pycosat.solve(clauses)
+  return sol
 
 def fullPipeline(gridInput):
   global numRows
@@ -132,6 +196,8 @@ def fullPipeline(gridInput):
   global colors
   global grid
 
+  startTime = time.perf_counter()
+  
   numCols = len(gridInput[0])
   numRows = len(gridInput)
   grid = gridInput
@@ -144,6 +210,15 @@ def fullPipeline(gridInput):
         unique.add(elem)
         if(elem != -1):
           colors.append(elem)
+  
+  clauses, numColorVars, numDirVars, numColorClauses, numDirClauses = generateSAT()
+  solution = generateSolution(clauses)
+
+  totTime = time.perf_counter() - startTime
+  
+  sol = decodeSolution(solution, numColorVars)
+  info = f"Took Time: {totTime}\n Number of Color Variables: {numColorVars}\n Number of Direction Variables: {numDirVars}\n Number of Color Clauses: {numColorClauses}\n Number of Direction Clauses: {numDirClauses}\n"
+  path = 'POOPY PATH\n'
 
   return sol, info, path
 
