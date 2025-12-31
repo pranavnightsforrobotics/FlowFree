@@ -14,7 +14,16 @@
 
 # color clauses isolate which color should exist for 1 square
 # direction clauses mandate color and direction based on which direct is true but they do not mandate a direction
-# cycle clauses just reject same path that leads to 
+# cycle clauses just reject same path that leads to
+
+def is_valid_integer(s):
+  try:
+    # Try to convert the string to an integer
+    int(s)
+    return True
+  except ValueError:
+    # If conversion fails, it's not a valid integer string
+    return False
 
 import sys
 import pycosat
@@ -65,14 +74,24 @@ def colorHash(colorNum, row, col):
 
 # ret: colorInd, row, col
 def colorUnhash(hash):
-  return hash // (numRows * numCols), hash // numCols, hash % numCols
+  colorInd = hash // (numRows * numCols)
+  remHash = hash % (numRows * numCols)
+  row = remHash // numCols
+  col = remHash % numCols
+  
+  return colorInd, row, col
 
 def dirHash(dirType, row, col):
   return dirType * (numRows * numCols) + row * numCols + col
 
 # dirType, row, col
 def dirUnhash(hash):
-  return hash // (numRows * numCols), hash // numCols, hash % numCols
+  dirType = hash // (numRows * numCols)
+  remHash = hash % (numRows * numCols)
+  row = remHash // numCols
+  col = remHash % numCols
+  
+  return dirType, row, col
 
 def generateColorClauses():
   clauses = []
@@ -81,15 +100,15 @@ def generateColorClauses():
       if(grid[row][col] == -1):
         arr = []
         for color in colors:
-          arr.append(colorHash(row, col, color))
+          arr.append(colorHash(color, row, col))
         clauses.append(arr)
         clauses.extend(noTwo(arr))
       else:
         for color in colors:
           if(color == grid[row][col]):
-            clauses.append(colorHash(row, col, col))
+            clauses.append([colorHash(color, row, col)])
           else:
-            clauses.append(-colorHash(row, col, col))
+            clauses.append([-colorHash(color, row, col)])
   
   return clauses
 
@@ -166,15 +185,17 @@ def generateSAT():
   return clauses, numColorVars, numDirVars, numColorClauses, numDirClauses
 
 def decodeSolution(sol, numColorVars):
-  solGrid = [[]]
+  solGrid = []
+
+  for _ in range(numRows):
+    solGrid.append([])
+    for _i in range(numCols):
+      solGrid[-1].append(-1)
   
-  for clauseInd in range(numColorVars):
-    if(sol[clauseInd] > 0):
-      solGrid[-1].append(colorUnhash(sol[clauseInd])[0])
-      if(len(solGrid[-1]) == numRows):
-        solGrid.append([])
-  
-  solGrid.pop()
+  for clauseInd in range(numRows * numCols, numRows * numCols + numColorVars):
+    if(sol[clauseInd - 1] > 0):
+      yur = colorUnhash(sol[clauseInd - 1])
+      solGrid[yur[1]][yur[2]] = yur[0]
 
   output_string = '\n'.join(
     [' '.join(map(str, row)) for row in solGrid]
@@ -214,6 +235,9 @@ def fullPipeline(gridInput):
   clauses, numColorVars, numDirVars, numColorClauses, numDirClauses = generateSAT()
   solution = generateSolution(clauses)
 
+  print(clauses)
+  print(solution)
+
   totTime = time.perf_counter() - startTime
   
   sol = decodeSolution(solution, numColorVars)
@@ -224,7 +248,7 @@ def fullPipeline(gridInput):
 
 def handleBadInput():
   print('ERROR: Called SAT solver with incorrect argument type')
-  print('Please call with following format: \'python3 ...../sat.py -s -i -g ...../puzzleLoc.txt\'')
+  print('Please call with following format: \'python3 ...../sat.py -s -i -p ...../puzzleLoc.txt\'')
   print('-s shows the solution in terminal')
   print('-i shows information about solving process in terminal')
   print('-p shows the recommended solution path')
@@ -254,7 +278,7 @@ def examinePuzzleFile(filePath):
     processed_line = line.strip().split()
     arr.append([])
     for num in processed_line:
-      if(not num.isdigit()):
+      if(not is_valid_integer(num)):
         handleBadPuzzle()
       arr[-1].append(int(num))
     
@@ -271,7 +295,7 @@ def examinePuzzleFile(filePath):
       else:
         numCheck.remove(num)
   
-  if(numCheck):
+  if((-1 not in numCheck and numCheck) or len(numCheck) > 1):
     handleBadPuzzle()
   
   return arr
@@ -303,9 +327,6 @@ if __name__ == "__main__":
         showPath = True
   
   puzz = examinePuzzleFile(puzzleFileName)
-
-  if(not puzz):
-    handleBadPuzzle()
   
   sol, info, path = fullPipeline(puzz)
 
