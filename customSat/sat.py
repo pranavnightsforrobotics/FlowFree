@@ -173,27 +173,54 @@ def generateDirectionClauses(dirVars):
       valid.append(dirVar)
       
       dirType, row, col = dirUnhash(dirVar)
+      dirs = []
+      nonDirs = []
+      for dir in plainDir:
+        if dir | dirType == dirType:
+          dirs.append(dir)
+        else:
+          nonDirs.append(dir)
+
+      con1Row, con1Col = row + delta[dirs[0]][0], col + delta[dirs[0]][1]
+      con2Row, con2Col = row + delta[dirs[1]][0], col + delta[dirs[1]][1]
+
+      nonCon1Row, nonCon1Col = row + delta[nonDirs[0]][0], col + delta[nonDirs[0]][1]
+      nonCon2Row, nonCon2Col = row + delta[nonDirs[1]][0], col + delta[nonDirs[1]][1]
 
       for color in colors:
         hash1 = colorHash(color, row, col)
-        
-        for dir in plainDir:
-          nRow, nCol = row + delta[dir][0], col + delta[dir][1]
+        hash2 = colorHash(color, con1Row, con1Col)
+        hash3 = colorHash(color, con2Row, con2Col)
 
-          if not (nRow >= 0 and nRow < numRows and nCol >= 0 and nCol < numCols):
-            continue
-
-          hash2 = colorHash(color, nRow, nCol)
+        hash4 = colorHash(color, nonCon1Row, nonCon1Col)
+        hash5 = colorHash(color, nonCon2Row, nonCon2Col)
         
-          if dirType & dir:
-            clauses.append([-dirVar, -hash1, hash2])
-            clauses.append([-dirVar, hash1, -hash2])
-          else:
-            clauses.append([-dirVar, -hash1, -hash2])
+        # If this direction is active, current cell and neighbor1 must have same color
+        clauses.append([-dirVar, -hash1, hash2])
+        clauses.append([-dirVar, hash1, -hash2])
+        
+        # If this direction is active, current cell and neighbor2 must have same color
+        clauses.append([-dirVar, -hash1, hash3])
+        clauses.append([-dirVar, hash1, -hash3])
+
+        # make color similarity for non direction following nodes illegal essentially
+        # mandate only direction nodes have same color and other nodes have different color
+        if(nonCon1Row >= 0 and nonCon1Row < numRows and nonCon1Col >= 0 and nonCon1Col < numCols):
+          clauses.append([-dirVar, -hash1, -hash4])
+        if(nonCon2Row >= 0 and nonCon2Row < numRows and nonCon2Col >= 0 and nonCon2Col < numCols):
+          clauses.append([-dirVar, -hash1, -hash5])
+        
     
     if(valid):
       clauses.append(valid)
       clauses.extend(noTwo(valid))
+      
+    # skip squares that are start points
+    # for not start make sure 1 dir var is valid for that node
+    # make sure no 2 dir vars are valid for that node
+    # for each dir possible in that node, make sure that the node and the 2 dirs connected by the dirVar all have same color
+    # the combination of 3 clauses at end ignores clauses if wrong dir, it ignores color for clauses if wrong color, and it mandates
+    # color of nodes if correct color
   
   return clauses
 
