@@ -18,12 +18,18 @@
 
 def is_valid_integer(s):
   try:
-    # Try to convert the string to an integer
     int(s)
     return True
   except ValueError:
-    # If conversion fails, it's not a valid integer string
     return False
+
+def sizeOf2dArr(arr):
+  cnt = 0
+  for row in arr:
+    for _ in row:
+      cnt += 1
+  
+  return cnt
 
 import sys
 import pycosat
@@ -82,10 +88,11 @@ def colorUnhash(hash):
   return colorInd, row, col
 
 def dirHash(dirType, row, col):
-  return dirType * (numRows * numCols) + row * numCols + col
+  return (dirType * (numRows * numCols) + row * numCols + col) + (numRows * numCols * len(colors))
 
 # dirType, row, col
 def dirUnhash(hash):
+  hash -= numRows * numCols * len(colors)
   dirType = hash // (numRows * numCols)
   remHash = hash % (numRows * numCols)
   row = remHash // numCols
@@ -114,6 +121,7 @@ def generateColorClauses():
 
 def generateValidDirections():
   arrOfDirVar = []
+
   for rowInd in range(numRows):
     for colInd in range(numCols):
       invalidArgs = set()
@@ -126,29 +134,46 @@ def generateValidDirections():
       if(colInd == numCols - 1):
         invalidArgs.add(RIGHT)
       tempArr = []
+
       for dirType in validDirs:
         mult = 1
-        if(grid[rowInd][colInd] != '-1'):
+        if(grid[rowInd][colInd] != -1):
           mult = -1
 
-        if(reduce(operator.xor, invalidArgs, dirType) != dirType):
+        elif(reduce(operator.or_, invalidArgs, 0) & dirType != 0 and invalidArgs):
           mult = -1
-
         tempArr.append(mult * dirHash(dirType, rowInd, colInd))
+        dH, rH, cH = dirUnhash(tempArr[-1])
       arrOfDirVar.append(tempArr)
-  
+
   return arrOfDirVar
 
 
 def generateDirectionClauses(dirVars):
   clauses = []
-  for rcInd in range(len(dirVars)):
-    if(dirVars[rcInd][0] < 0):
-      continue
-    clauses.append(dirVars[rcInd])
-    clauses.append(noTwo(dirVars[rcInd]))
 
+  for rcInd in range(len(dirVars)):
+    _, tRow, tCol = dirUnhash(dirVars[rcInd][0])
+
+    if(grid[tRow][tCol] != -1):
+      validNeigh = []
+      for data in delta.values():
+        ttRow = tRow + data[0]
+        ttCol = tCol + data[1]
+        if(ttRow >= 0 and ttRow < numRows and ttCol >= 0 and ttCol < numCols):
+          validNeigh.append(colorHash(grid[tRow][tCol], ttRow, ttCol))
+      
+      clauses.append(validNeigh)
+      continue
+    
+    valid = []
     for dirVar in dirVars[rcInd]:
+      if(dirVar < 0):
+        clauses.append([dirVar])
+        continue
+
+      valid.append(dirVar)
+      
       dirType, row, col = dirUnhash(dirVar)
       dirs = []
       for dir in plainDir:
@@ -160,9 +185,13 @@ def generateDirectionClauses(dirVars):
         hash1 = colorHash(color, row, col)
         hash2 = colorHash(color, con1Row, con1Col)
         hash3 = colorHash(color, con2Row, con2Col)
-        clauses.append([-dirType, hash1, -hash2, -hash3])
-        clauses.append([-dirType, -hash1, hash2, -hash3])
-        clauses.append([-dirType, -hash1, -hash2, hash3])
+        clauses.append([-dirVar, hash1, -hash2, -hash3])
+        clauses.append([-dirVar, -hash1, hash2, -hash3])
+        clauses.append([-dirVar, -hash1, -hash2, hash3])
+    
+    if(valid):
+      clauses.append(valid)
+      clauses.extend(noTwo(valid))
       
     # skip squares that are start points
     # for not start make sure 1 dir var is valid for that node
@@ -178,8 +207,10 @@ def generateSAT():
   numColorVars = len(colors) * numRows * numCols
   numColorClauses = len(clauses)
   dirs = generateValidDirections()
-  clauses.extend(generateDirectionClauses(dirs))
-  numDirVars = len(dirs)
+  directionClauses = generateDirectionClauses(dirs)
+  
+  clauses.extend(directionClauses)
+  numDirVars = sizeOf2dArr(dirs)
   numDirClauses = len(clauses) - numColorClauses
 
   return clauses, numColorVars, numDirVars, numColorClauses, numDirClauses
@@ -234,8 +265,12 @@ def fullPipeline(gridInput):
   
   clauses, numColorVars, numDirVars, numColorClauses, numDirClauses = generateSAT()
   solution = generateSolution(clauses)
-
+  
   print(clauses)
+  # print(dirHash(UD, 1, 0))
+  # print(dirUnhash(180))
+  # print(dirUnhash(330))
+  # print(dirUnhash(355))
   print(solution)
 
   totTime = time.perf_counter() - startTime
