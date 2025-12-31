@@ -55,8 +55,8 @@ colors = []
 grid = [[]]
 validDirs = [UD, UL, UR, DL, DR, LR]
 plainDir = [UP, DOWN, LEFT, RIGHT]
-delta = {UP: (1, 0),
-         DOWN: (-1, 0),
+delta = {UP: (-1, 0),
+         DOWN: (1, 0),
          LEFT: (0, -1),
          RIGHT: (0, 1)}
 
@@ -122,8 +122,22 @@ def generateColorClauses():
 def generateValidDirections():
   arrOfDirVar = []
 
+  endpointConnectClasues = []
+
   for rowInd in range(numRows):
     for colInd in range(numCols):
+      if(grid[rowInd][colInd] != -1):
+        validNeigh = []
+        for data in delta.values():
+          tRow = rowInd + data[0]
+          tCol = colInd + data[1]
+          if(tRow >= 0 and tRow < numRows and tCol >= 0 and tCol < numCols):
+            validNeigh.append(colorHash(grid[rowInd][colInd], tRow, tCol))
+        
+        endpointConnectClasues.append(validNeigh)
+        endpointConnectClasues.extend(noTwo(validNeigh))
+        continue
+
       invalidArgs = set()
       if(rowInd == 0):
         invalidArgs.add(UP)
@@ -136,36 +150,20 @@ def generateValidDirections():
       tempArr = []
 
       for dirType in validDirs:
-        mult = 1
-        if(grid[rowInd][colInd] != -1):
-          mult = -1
-
-        elif(reduce(operator.or_, invalidArgs, 0) & dirType != 0 and invalidArgs):
-          mult = -1
-        tempArr.append(mult * dirHash(dirType, rowInd, colInd))
-        dH, rH, cH = dirUnhash(tempArr[-1])
+        if(reduce(operator.or_, invalidArgs, 0) & dirType != 0 and invalidArgs):
+          tempArr.append(-dirHash(dirType, rowInd, colInd))
+        else:
+          tempArr.append(dirHash(dirType, rowInd, colInd))
+        
       arrOfDirVar.append(tempArr)
 
-  return arrOfDirVar
+  return arrOfDirVar, endpointConnectClasues
 
 
 def generateDirectionClauses(dirVars):
   clauses = []
 
   for rcInd in range(len(dirVars)):
-    _, tRow, tCol = dirUnhash(dirVars[rcInd][0])
-
-    if(grid[tRow][tCol] != -1):
-      validNeigh = []
-      for data in delta.values():
-        ttRow = tRow + data[0]
-        ttCol = tCol + data[1]
-        if(ttRow >= 0 and ttRow < numRows and ttCol >= 0 and ttCol < numCols):
-          validNeigh.append(colorHash(grid[tRow][tCol], ttRow, ttCol))
-      
-      clauses.append(validNeigh)
-      continue
-    
     valid = []
     for dirVar in dirVars[rcInd]:
       if(dirVar < 0):
@@ -175,30 +173,27 @@ def generateDirectionClauses(dirVars):
       valid.append(dirVar)
       
       dirType, row, col = dirUnhash(dirVar)
-      dirs = []
-      for dir in plainDir:
-        if dir | dirType == dirType:
-          dirs.append(dir)
-      con1Row, con1Col = row + delta[dirs[0]][0], col + delta[dirs[0]][1]
-      con2Row, con2Col = row + delta[dirs[1]][0], col + delta[dirs[1]][1]
+
       for color in colors:
         hash1 = colorHash(color, row, col)
-        hash2 = colorHash(color, con1Row, con1Col)
-        hash3 = colorHash(color, con2Row, con2Col)
-        clauses.append([-dirVar, hash1, -hash2, -hash3])
-        clauses.append([-dirVar, -hash1, hash2, -hash3])
-        clauses.append([-dirVar, -hash1, -hash2, hash3])
+        
+        for dir in plainDir:
+          nRow, nCol = row + delta[dir][0], col + delta[dir][1]
+
+          if not (nRow >= 0 and nRow < numRows and nCol >= 0 and nCol < numCols):
+            continue
+
+          hash2 = colorHash(color, nRow, nCol)
+        
+          if dirType & dir:
+            clauses.append([-dirVar, -hash1, hash2])
+            clauses.append([-dirVar, hash1, -hash2])
+          else:
+            clauses.append([-dirVar, -hash1, -hash2])
     
     if(valid):
       clauses.append(valid)
       clauses.extend(noTwo(valid))
-      
-    # skip squares that are start points
-    # for not start make sure 1 dir var is valid for that node
-    # make sure no 2 dir vars are valid for that node
-    # for each dir possible in that node, make sure that the node and the 2 dirs connected by the dirVar all have same color
-    # the combination of 3 clauses at end ignores clauses if wrong dir, it ignores color for clauses if wrong color, and it mandates
-    # color of nodes if correct color
   
   return clauses
 
@@ -206,10 +201,11 @@ def generateSAT():
   clauses = generateColorClauses()
   numColorVars = len(colors) * numRows * numCols
   numColorClauses = len(clauses)
-  dirs = generateValidDirections()
+  dirs, endPointClauses = generateValidDirections()
   directionClauses = generateDirectionClauses(dirs)
   
   clauses.extend(directionClauses)
+  clauses.extend(endPointClauses)
   numDirVars = sizeOf2dArr(dirs)
   numDirClauses = len(clauses) - numColorClauses
 
