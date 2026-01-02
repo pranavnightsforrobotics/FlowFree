@@ -241,25 +241,80 @@ def generateSAT():
 def decodeSolution(sol, numColorVars):
   solGrid = []
 
+  solSet = set(sol)
+
   for _ in range(numRows):
     solGrid.append([])
     for _i in range(numCols):
-      solGrid[-1].append(-1)
-  
-  for clauseInd in range(numRows * numCols, numRows * numCols + numColorVars):
-    if(sol[clauseInd - 1] > 0):
-      yur = colorUnhash(sol[clauseInd - 1])
-      solGrid[yur[1]][yur[2]] = yur[0]
+      solGrid[-1].append([-1, -1])
+
+  for clause in range(numRows * numCols, numRows * numCols + numColorVars):
+    if(clause in solSet):
+      yur = colorUnhash(clause)
+      solGrid[yur[1]][yur[2]][0] = yur[0]
+      if(grid[yur[1]][yur[2]] != -1):
+        solGrid[yur[1]][yur[2]][1] = -1
+      else:
+        for dir in validDirs:
+          if(dirHash(dir, yur[1], yur[2]) in solSet):
+            solGrid[yur[1]][yur[2]][1] = dirHash(dir, yur[1], yur[2])
 
   output_string = '\n'.join(
-    [' '.join(map(str, row)) for row in solGrid]
+    ['  '.join(str(cell[0]).rjust(2) for cell in row) for row in solGrid]
   )
 
-  return output_string
+  return output_string, solGrid
 
-# def checkForCycles():
+# take input of solGrid and iter through things and explore all nodes that are adjacent to it in a 1d dfs manner
 
-# def fixCycles():
+def fixCycles(solGrid):
+  visited = [[False for _ in range(len(solGrid[0]))] for _ in range(len(solGrid))]
+  color = [False for _ in range(len(colors))]
+  colorDirClauses = [[] for _ in colors]
+
+  extraClauses = []
+
+  def dfs(row, col, isSingle, endAtEnd, pathSoFar):
+    if(solGrid[row][col][1] != -1):
+      pathSoFar.append(solGrid[row][col][1])
+    
+    elif(endAtEnd):
+      return pathSoFar, True
+
+    visited[row][col] = True
+
+    for x, y in delta.values():
+      nRow, nCol = row + x, col + y
+      if((0 <= nRow < numRows) and (0 <= nCol < numCols) and not visited[nRow][nCol] and solGrid[nRow][nCol][0] == solGrid[row][col][0]):
+        pathSoFar, var = dfs(nRow, nCol, isSingle, isSingle, pathSoFar)
+        if(isSingle):
+          return pathSoFar, var
+    
+    return pathSoFar, False
+
+  for row in range(len(solGrid)):
+    for col in range(len(solGrid[row])):
+      if(solGrid[row][col][1] == -1 and not visited[row][col]):
+        path, isGood = dfs(row, col, True, False, [])
+
+        if(not isGood):
+          extraClauses.append([-var for var in path])
+
+        else:
+          colorDirClauses[solGrid[row][col][0] - 1] = path
+  
+  for row in range(len(solGrid)):
+    for col in range(len(solGrid[row])):
+      if(not visited[row][col]):
+        color[solGrid[row][col][0] - 1] = True
+        path, isGood = dfs(row, col, False, False, [])
+
+        if not colorDirClauses[solGrid[row][col][0] - 1]:
+          colorDirClauses[solGrid[row][col][0] - 1] = path
+        else:
+          extraClauses.append([-var for var in path])
+      
+  return [item for item in extraClauses if item != []]
 
 def generateSolution(clauses):
   sol = pycosat.solve(clauses)
@@ -288,21 +343,26 @@ def fullPipeline(gridInput):
   
   clauses, numColorVars, numDirVars, numColorClauses, numDirClauses = generateSAT()
   solution = generateSolution(clauses)
-  
-  print(clauses)
-  # print(dirHash(UD, 1, 0))
-  # print(dirUnhash(180))
-  # print(dirUnhash(330))
-  # print(dirUnhash(355))
-  print(solution)
+  solStr, solGrid = decodeSolution(solution, numColorVars)
 
-  totTime = time.perf_counter() - startTime
+  extraClauses = fixCycles(solGrid)
+  totExtra = len(extraClauses)
+
+  while extraClauses:
+    print(extraClauses)
+    clauses.extend(extraClauses)
+    solution = generateSolution(clauses)
+    solStr, solGrid = decodeSolution(solution, numColorVars)
+    
+    extraClauses = fixCycles(solGrid)
+    totExtra += len(extraClauses)
   
-  sol = decodeSolution(solution, numColorVars)
-  info = f"Took Time: {totTime}\n Number of Color Variables: {numColorVars}\n Number of Direction Variables: {numDirVars}\n Number of Color Clauses: {numColorClauses}\n Number of Direction Clauses: {numDirClauses}\n"
+  totTime = time.perf_counter() - startTime
+
+  info = f"Took Time: {totTime}\n Number of Color Variables: {numColorVars}\n Number of Direction Variables: {numDirVars}\n Number of Color Clauses: {numColorClauses}\n Number of Direction Clauses: {numDirClauses}\n Amount of Extra Clauses: {totExtra}"
   path = 'POOPY PATH\n'
 
-  return sol, info, path
+  return solStr, info, path
 
 def handleBadInput():
   print('ERROR: Called SAT solver with incorrect argument type')
