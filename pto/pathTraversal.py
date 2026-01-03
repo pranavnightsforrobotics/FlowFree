@@ -1,6 +1,6 @@
 delta = [[1,0], [-1,0], [0, 1], [0, -1]]
 
-def computePathBrute(solGrid):
+def generateColorPath(solGrid):
   colorPath = {}
   
   def traverseThrough(row, col):
@@ -25,9 +25,16 @@ def computePathBrute(solGrid):
       color = solGrid[row][col][0]
       if color not in colorPath and solGrid[row][col][1] == -1:
         colorPath[color] = traverseThrough(row, col)
+
+  return colorPath
+
+def computePathBrute(solGrid):
+  colorPath = generateColorPath(solGrid)
   
   minVal = 1000000000
   bestPath = []
+
+  memo = {}
   
   def backTrack(doneSoFar, cntSoFar, startingPoint, order):
     nonlocal minVal
@@ -51,7 +58,6 @@ def computePathBrute(solGrid):
     if(len(doneSoFar) == len(colorPath) and cntSoFar < minVal):
       minVal = cntSoFar
       bestPath = order
-
   
   for r in range(len(solGrid)):
     for c in range(len(solGrid[r])):
@@ -59,5 +65,70 @@ def computePathBrute(solGrid):
 
   print(minVal)
   print(bestPath)
+
+  return 'Poopy Path\n'
+
+def computePathDP(solGrid):
+  colorPath = generateColorPath(solGrid)
+
+  # set up base case
+
+  allColors = frozenset(colorPath.keys())
+
+  memo = {}
+  for x in range(len(solGrid)):
+    for y in range(len(solGrid[x])):
+      memo[(x, y, frozenset())] = (0, [])
+
+  minVal = 100000000000
+  minPath = []
+  
+  def backTrack(remaning, startingPoint):
+    key = (startingPoint[0], startingPoint[1], remaning)
+
+    if(key in memo):
+      return memo[key]
+    
+    bestCst = float('inf')
+    bestPath = []
+    
+    for color in remaning:
+      start = colorPath[color][0]
+      end = colorPath[color][-1]
+      pathCst = len(colorPath[color]) - 1
+      jumpCst = abs(start[0] - startingPoint[0]) + abs(start[1] - startingPoint[1])
+
+      remNew = remaning - {color}
+      
+      remCst, remPath = backTrack(remNew, end)
+      
+      if(remCst + jumpCst + pathCst < bestCst):
+        bestCst = remCst + jumpCst + pathCst
+        bestPath = colorPath[color] + remPath
+
+      jumpCst = abs(end[0] - startingPoint[0]) + abs(end[1] - startingPoint[1])
+
+      remCst, remPath = backTrack(remNew, start)
+      
+      if(remCst + jumpCst + pathCst < bestCst):
+        bestCst = remCst + jumpCst + pathCst
+        bestPath = colorPath[color][::-1] + remPath    
+    
+    memo[key] = (bestCst, bestPath)
+    return bestCst, bestPath
+  
+  for color in colorPath:
+    tempVal, tempPath = backTrack(allColors, colorPath[color][0])
+    if(tempVal < minVal):
+      minVal = tempVal
+      minPath = tempPath
+
+    tempVal, tempPath = backTrack(allColors, colorPath[color][-1])
+    if(tempVal < minVal):
+      minVal = tempVal
+      minPath = tempPath
+
+  print(minVal)
+  print(minPath)
 
   return 'Poopy Path\n'
