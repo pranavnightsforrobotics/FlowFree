@@ -36,6 +36,14 @@ import pycosat
 import operator
 from functools import reduce
 import time
+import os
+
+# Get the path to the FlowFree directory (one level up from customSat)
+# Assuming sat.py is in FlowFree/customSat/
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Now use an absolute import path relative to the FlowFree root
+from pathTraversalOptimization.bruteForce import computePathBrute
 
 UP = 1
 DOWN = 2
@@ -357,11 +365,11 @@ def fullPipeline(gridInput):
     extraClauses = fixCycles(solGrid)
     totExtra += len(extraClauses)
   
+  path = computePathBrute(solGrid)
+
   totTime = time.perf_counter() - startTime
-
   info = f"Took Time: {totTime}\n Number of Color Variables: {numColorVars}\n Number of Direction Variables: {numDirVars}\n Number of Color Clauses: {numColorClauses}\n Number of Direction Clauses: {numDirClauses}\n Amount of Extra Clauses: {totExtra}"
-  path = 'POOPY PATH\n'
-
+  
   return solStr, info, path
 
 def handleBadInput():
