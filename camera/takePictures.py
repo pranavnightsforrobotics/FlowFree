@@ -9,12 +9,13 @@ camera = pylon.InstantCamera(
 )
 camera.Open()
 
-camera.PixelFormat.SetValue("YCbCr422_8")
+camera.PixelFormat.SetValue("BayerGR8")
 
 camera.ExposureAuto.SetValue("Off")
 camera.GainAuto.SetValue("Off")
 
 camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+num = 1
 
 # -------------------------------
 # OpenCV window + trackbar
@@ -33,14 +34,18 @@ while camera.IsGrabbing():
         bayer = grab.Array
 
         # Convert BayerGR8 → grayscale
-        gray = cv2.cvtColor(bayer, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(bayer, cv2.COLOR_BayerGR2GRAY)
+        color_rgb = cv2.cvtColor(bayer, cv2.COLOR_BayerGR2RGB)
 
         thresh = cv2.getTrackbarPos("Threshold", WINDOW)
 
         _, bw = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)
 
         cv2.imshow(WINDOW, bw)
-        cv2.imshow("Normal", bayer)
+        cv2.imshow("Color View", color_rgb)
+        if(cv2.waitKey(1) & 0xFF == ord('s')):
+            cv2.imwrite('./camera/image' + str(num) + '.png', color_rgb)
+            num += 1
 
     grab.Release()
 
