@@ -67,11 +67,12 @@ dVec = {}
 pVec = {}
 
 # base side length, platform side length, thigh length, calf length
-def defineRobot(bsl: float, psl: float, tl: float, cl: float):
+def defineRobot(bsl: float, psl: float, tl: float, cl: float, pW: float):
   rV['sB'] = abs(bsl)
   rV['sP'] = abs(psl)
   rV['L'] = abs(tl)
   rV['l'] = abs(cl)
+  rV['pW'] = abs(pW) / 2
 
   rV['wB'] = rV['sB'] * SR3 / 6
   rV['uB'] = rV['sB'] * SR3 / 3
@@ -111,9 +112,10 @@ def calculateIK(x, y, z):
   
   t3Pls, t3Mns = quadForm((G3 - E3), 2 * F3, (G3 + E3))
   
-  theta1 = 180 * (math.atan(t1Pls)) / math.pi
-  theta2 = 180 * (math.atan(t2Pls)) / math.pi
-  theta3 = 180 * (math.atan(t3Pls)) / math.pi
+  # meant to use mns dont rly know why yet will find empirical reson later
+  theta1 = 180 * (math.atan(t1Mns)) / math.pi
+  theta2 = 180 * (math.atan(t2Mns)) / math.pi
+  theta3 = 180 * (math.atan(t3Mns)) / math.pi
   
   return 2 * theta1, 2 * theta2, 2 * theta3
 
@@ -139,7 +141,36 @@ def calculateFK(theta1, theta2, theta3):
 
   return intersectOfThreeSpheres(c1, c2, c3, rV['l'])
 
-defineRobot(75, 12, 100, 230)
-t1, t2, t3 = calculateIK(100, -50, -200)
-print(t1, t2, t3)
-print(calculateFK(t1, t2, t3))
+def givePositionsFromTheta(theta1, theta2, theta3):
+  pVec['BPP'] = calculateFK(theta1, theta2, theta3)
+  pVec['BP1'] = pVec['BPP'] + pVec['PP1']
+  pVec['BP2'] = pVec['BPP'] + pVec['PP2']
+  pVec['BP3'] = pVec['BPP'] + pVec['PP3']
+
+  dVec['dVecA1'] = numpy.array([rV['pW'], 0, 0])
+  dVec['dVecA2'] = numpy.array([-rV['pW'] / 2, SR3 * rV['pW'] / 2, 0])
+  dVec['dVecA3'] = numpy.array([rV['pW'] / 2, SR3 * rV['pW'] / 2, 0])
+
+  basePos = numpy.array([0, 0, 0])
+  baseSideLen = rV['sB']
+  botPos = pVec['BPP']
+  botSideLen = rV['sP']
+  base1Pos = pVec['BB1']
+  base2Pos = pVec['BB2']
+  base3Pos = pVec['BB3']
+  knee1Pos = pVec['BA1']
+  knee2Pos = pVec['BA2']
+  knee3Pos = pVec['BA3']
+  disPal1 = dVec['dVecA1']
+  disPal2 = dVec['dVecA2']
+  disPal3 = dVec['dVecA3']
+  bot1Pos = pVec['BP1']
+  bot2Pos = pVec['BP2']
+  bot3Pos = pVec['BP3']
+
+  return basePos, baseSideLen, botPos, botSideLen, base1Pos, base2Pos, base3Pos, knee1Pos, knee2Pos, knee3Pos, disPal1, disPal2, disPal3, bot1Pos, bot2Pos, bot3Pos
+
+# defineRobot(75, 12, 100, 230)
+# t1, t2, t3 = calculateIK(100, -50, -200)
+# print(t1, t2, t3)
+# print(calculateFK(t1, t2, t3))
