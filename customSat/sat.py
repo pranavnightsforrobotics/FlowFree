@@ -43,8 +43,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Now use an absolute import path relative to the FlowFree root
-from pto.pathTraversal import computePathBrute
-from pto.pathTraversal import computePathDP
+from pto.pathTraversal import computePathBrute, computePathDP, computePathGreedy
+
 
 
 UP = 1
@@ -368,6 +368,7 @@ def fullPipeline(gridInput):
     totExtra += len(extraClauses)
   
   path = computePathDP(solGrid)
+  # path = computePathGreedy(solGrid)
   # path = computePathBrute(solGrid)
 
   totTime = time.perf_counter() - startTime

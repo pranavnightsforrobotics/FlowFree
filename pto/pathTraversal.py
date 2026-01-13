@@ -1,7 +1,10 @@
+import math
+
 delta = [[1,0], [-1,0], [0, 1], [0, -1]]
 
 def generateColorPath(solGrid):
   colorPath = {}
+  colorEnds = {}
   
   def traverseThrough(row, col):
     prev = ()
@@ -25,11 +28,44 @@ def generateColorPath(solGrid):
       color = solGrid[row][col][0]
       if color not in colorPath and solGrid[row][col][1] == -1:
         colorPath[color] = traverseThrough(row, col)
+        colorEnds[color] = [colorPath[color][0], colorPath[color][-1]]
 
-  return colorPath
+  return colorPath, colorEnds
+
+def dist(p1, p2):
+  return abs(p1[0] - p2[0]) + abs(p1[1] - p2[1])
+
+def generateNearestEnd(colorEnds):
+  posRanking = {}
+  largestMin = -1
+  startPos = -1
+  startColor = -1
+
+  for start in colorEnds:
+    posRanking[(colorEnds[start][0], start)] = []
+    posRanking[(colorEnds[start][1], start)] = []
+    
+    for goal in colorEnds:
+      if(start == goal):
+        continue
+
+      elem0 = colorEnds[goal][0] if dist(colorEnds[start][0], colorEnds[goal][0]) < dist(colorEnds[start][0], colorEnds[goal][1]) else colorEnds[goal][1]
+      elem1 = colorEnds[goal][0] if dist(colorEnds[start][1], colorEnds[goal][0]) < dist(colorEnds[start][1], colorEnds[goal][1]) else colorEnds[goal][1]
+
+      posRanking[(colorEnds[start][0], start)].append((dist(colorEnds[start][0], elem0), goal, elem0))
+      posRanking[(colorEnds[start][1], start)].append((dist(colorEnds[start][1], elem1), goal, elem1))
+    
+  for key, value in posRanking.items():
+    posRanking[key] = sorted(value, key= lambda x: x[0])
+    if(largestMin < posRanking[key][0][0]):
+      largestMin = posRanking[key][0][0]
+      startPos = colorEnds[key[1]][0] if colorEnds[key[1]][0] != key[0] else colorEnds[key[1]][1]
+      startColor = key[1]
+  
+  return posRanking, startPos, startColor
 
 def computePathBrute(solGrid):
-  colorPath = generateColorPath(solGrid)
+  colorPath, colorEnds = generateColorPath(solGrid)
   
   minVal = 1000000000
   bestPath = []
@@ -69,7 +105,7 @@ def computePathBrute(solGrid):
   return 'Poopy Path\n'
 
 def computePathDP(solGrid):
-  colorPath = generateColorPath(solGrid)
+  colorPath, colorEnds = generateColorPath(solGrid)
 
   # set up base case
 
@@ -127,6 +163,38 @@ def computePathDP(solGrid):
     if(tempVal < minVal):
       minVal = tempVal
       minPath = tempPath
+
+  print(minVal)
+  print(minPath)
+
+  return 'Poopy Path\n'
+
+def computePathGreedy(solGrid):
+  colorPath, colorEnds = generateColorPath(solGrid)
+  endRanking, startPos, startColor = generateNearestEnd(colorEnds)
+
+  minVal = 0
+  minPath = []
+  seen = set()
+  curPos = startPos
+  curColor = startColor
+
+  while(len(seen) != len(colorEnds)):
+    minPath.extend(colorPath[curColor] if colorPath[curColor][0] == curPos else colorPath[curColor][::-1])
+    minVal += len(colorPath[curColor]) - 1
+    seen.add(curColor)
+
+    if(len(seen) == len(colorEnds)):
+      break
+
+    for dist, color, pos in endRanking[(curPos, curColor)]:
+      if(color in seen):
+        continue
+
+      minVal += dist
+      curPos = pos
+      curColor = color
+      break
 
   print(minVal)
   print(minPath)
