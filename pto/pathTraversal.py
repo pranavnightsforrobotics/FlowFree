@@ -68,13 +68,12 @@ def computePathBrute(solGrid):
   colorPath, colorEnds = generateColorPath(solGrid)
   
   minVal = 1000000000
-  bestPath = []
-
-  memo = {}
+  minPath = []
   
   def backTrack(doneSoFar, cntSoFar, startingPoint, order):
+    # print('entered', cntSoFar, doneSoFar, colorPath.keys())
     nonlocal minVal
-    nonlocal bestPath
+    nonlocal minPath
     if cntSoFar >= minVal:
       return
     
@@ -82,27 +81,24 @@ def computePathBrute(solGrid):
       if(color not in doneSoFar):
         doneSoFar.add(color)
         addational = len(colorPath[color]) - 1 + abs(startingPoint[0] - colorPath[color][0][0]) + abs(startingPoint[1] - colorPath[color][0][1])
-        tempOrder = order + colorPath[color]
+        tempOrder = order + [colorPath[color]]
         backTrack(doneSoFar, cntSoFar + addational, (colorPath[color][-1][0], colorPath[color][-1][1]), tempOrder)
 
         addational = len(colorPath[color]) - 1 + abs(startingPoint[0] - colorPath[color][-1][0]) + abs(startingPoint[1] - colorPath[color][-1][1])
-        tempOrder = order + colorPath[color][::-1]
+        tempOrder = order + [colorPath[color][::-1]]
         backTrack(doneSoFar, cntSoFar + addational, (colorPath[color][0][0], colorPath[color][0][1]), tempOrder)
 
         doneSoFar.remove(color)
     
     if(len(doneSoFar) == len(colorPath) and cntSoFar < minVal):
       minVal = cntSoFar
-      bestPath = order
+      minPath = order
   
   for r in range(len(solGrid)):
     for c in range(len(solGrid[r])):
       backTrack(set(), 0, (r, c), [])
 
-  print(minVal)
-  print(bestPath)
-
-  return 'Poopy Path\n'
+  return minPath, minVal
 
 def computePathDP(solGrid):
   colorPath, colorEnds = generateColorPath(solGrid)
@@ -140,7 +136,7 @@ def computePathDP(solGrid):
       
       if(remCst + jumpCst + pathCst < bestCst):
         bestCst = remCst + jumpCst + pathCst
-        bestPath = colorPath[color] + remPath
+        bestPath = [colorPath[color]] + remPath
 
       jumpCst = abs(end[0] - startingPoint[0]) + abs(end[1] - startingPoint[1])
 
@@ -148,7 +144,7 @@ def computePathDP(solGrid):
       
       if(remCst + jumpCst + pathCst < bestCst):
         bestCst = remCst + jumpCst + pathCst
-        bestPath = colorPath[color][::-1] + remPath    
+        bestPath = [colorPath[color][::-1]] + remPath    
     
     memo[key] = (bestCst, bestPath)
     return bestCst, bestPath
@@ -164,10 +160,7 @@ def computePathDP(solGrid):
       minVal = tempVal
       minPath = tempPath
 
-  print(minVal)
-  print(minPath)
-
-  return 'Poopy Path\n'
+  return minPath, minVal
 
 def computePathGreedy(solGrid):
   colorPath, colorEnds = generateColorPath(solGrid)
@@ -180,7 +173,7 @@ def computePathGreedy(solGrid):
   curColor = startColor
 
   while(len(seen) != len(colorEnds)):
-    minPath.extend(colorPath[curColor] if colorPath[curColor][0] == curPos else colorPath[curColor][::-1])
+    minPath.extend([colorPath[curColor] if colorPath[curColor][0] == curPos else colorPath[curColor][::-1]])
     minVal += len(colorPath[curColor]) - 1
     seen.add(curColor)
 
@@ -196,7 +189,4 @@ def computePathGreedy(solGrid):
       curColor = color
       break
 
-  print(minVal)
-  print(minPath)
-
-  return 'Poopy Path\n'
+  return minPath, minVal

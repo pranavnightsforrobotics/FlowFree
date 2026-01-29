@@ -367,14 +367,15 @@ def fullPipeline(gridInput):
     extraClauses = fixCycles(solGrid)
     totExtra += len(extraClauses)
   
-  path = computePathDP(solGrid)
-  # path = computePathGreedy(solGrid)
-  # path = computePathBrute(solGrid)
+  path, cst = computePathDP(solGrid)
+  # path, cst = computePathGreedy(solGrid)
+  # path, cst = computePathBrute(solGrid)
 
   totTime = time.perf_counter() - startTime
   info = f"Took Time: {totTime}\n Number of Color Variables: {numColorVars}\n Number of Direction Variables: {numDirVars}\n Number of Color Clauses: {numColorClauses}\n Number of Direction Clauses: {numDirClauses}\n Amount of Extra Clauses: {totExtra}"
-  
-  return solStr, info, path
+  cost = f'Path cost is: {cst}'
+
+  return solStr, info, path, cost
 
 def handleBadInput():
   print('ERROR: Called SAT solver with incorrect argument type')
@@ -458,7 +459,7 @@ if __name__ == "__main__":
   
   puzz = examinePuzzleFile(puzzleFileName)
   
-  sol, info, path = fullPipeline(puzz)
+  sol, info, path, cost = fullPipeline(puzz)
 
   if(showInfo):
     print(info)
@@ -468,3 +469,4 @@ if __name__ == "__main__":
   
   if(showPath):
     print(path)
+    print(cost)
